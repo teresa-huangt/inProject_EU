@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<title> Radial Chart </title>
+	<script src="https://d3js.org/d3.v6.min.js"></script>
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Jura">
+	<style type="text/css">
+		svg,
+		body
+		{ 
+			background-color: #e4d2c1;
+		}
+
+		.headerLabel,
+		.radialBarLabel,
+		.benchmark,
+		.slopeLabel,
+		h1,h2{
+			font-family: Jura,sans-serif;
+		}
+	</style>
+</head>
+
+<body>
+	<div> 
+		<h1 id="title">EU Women Position</h1>
+		<h2>Seats held by women in nation parliaments and goverments < 50% in all europe countries in 2019.</h2>
+		<svg id="placeholder1"; style="width:2000px; height:1500px; padding: 20px"></svg>
+	</div>
+	<div> 
+		<h2>click from above rardial bar to choose a country to highlight change from 2009 to 2019.</h2>
+		<svg id="placeholder2"; style="width:2000px; height:1500px; padding: 20px"></svg>
+	</div>
+
+	<script type="text/javascript">
+
+	// Const colors, reusable from light to dark
+	green0 = "#c8f7c5"
+	green1 = "#29f1c3"
+	green2 = "#00e640"
+	blue0 = "#a2ded0"
+	blue1 = "#86e2d5"
+	blue2 = "#4ecdc4"
+	purple0 = "#947cb0"
+	purple1 = "#a96dad"
+	purple2 = "#8c14fc"
+	gray1 = "#ececec"
+	gray0 = "#ecf0f1"
+	gray2 = "#6c7a89"
+
+	// DuBois style color; dubois radial bar color
+		//type1
+		var colorListAll = [
+					
+					"#ffc0cb",
+					"#4682b4",
+					"#654321",
+					"#d2b48c",
+					"#ffd700",
+					"#dc143c",
+					"#000000",	
+					"#00aa00",	
+					]
+
+		// type2
+		var colorList = [
+					"#eaafa6", 
+					"#9da0b0", 
+					"#c4a58f", 
+					"#ecb025", 
+					"#d8c7b3", 
+					"#dc354a"
+					]
+
+	// Init window size
+	windowW = 900
+	windowH = 1000
+	margin = {top:20, bottom:20, left:20, right:20}
+	width = windowW - margin.left - margin.right
+	height = windowH - margin.top - margin.bottom
+
+	var xlabelPadding = -10
+	var ylabelPadding = 5
+
+	// Datatsets 真实数据
+	d3.csv("Seats Held by Women in Parliament_changeFormat_2009-2019_reduceAvg_reduceSwitzerland.csv").then(function(rawdata){
+		rawdata.forEach(function(d){
+			d.location = d.Location;
+			d.r2019 = +d.R2019;
+			d.ratios = [+d.R2009, +d.R2019];
+		})
+
+	data = rawdata
+	data = data.slice().sort((a,b)=>d3.descending(a.r2019, b.r2019))
+	console.log('Check reorder data', data)
+
+	// scale dataset
+	dataLength = data.length
+	colorList = d3.scaleQuantile().domain([0,dataLength]).range(colorList)
+	scale = d3.scaleLinear().domain([0, 1]).range([0, 2 * Math.PI])
+
+	// level3
+  	var keys = data.map((d, i) => d.location)
+  	console.log("check keys", keys)
+
+	// level2
+  	var arcMinRadius = 60
+  	var numArcs = keys.length
+  	var arcPadding = 0.5 //15;17;7
+  	var chartRadius = height/2
+
+  	// level 1
+  	var arcWidth = (chartRadius - arcMinRadius - numArcs * arcPadding) / numArcs
+
+  	function getInnerRadius(index) {
+    	return arcMinRadius + (numArcs - (index + 1)) * (arcWidth + arcPadding);
+  	}
+  	
+	// level0
+	function getOuterRadius(index) {
+    	return getInnerRadius(index) + arcWidth;
+  	}
+
+	// Init svg
+	var svg = d3.select("#placeholder1")
+				.append("g")
+				.attr("width", width)
+				.attr("height", height)	
+				.attr("transform", "translate(" + 700 + "," + height/1.2 + ")")
+
+	// header
+	var headerLabel = 
+				[
+					"EU Women Position in 2019",
+				]
+
+	var header = svg.selectAll(".title")
+					.data(headerLabel)
+					.enter()
+					.append("text")
+					.attr("class", "headerLabel")
+					.style("fill", "black")
+					.attr("x", xlabelPadding - 150)
+					.attr("y", (d,i)=>-getOuterRadius(i) + (i*10) + ylabelPadding -100)
+					.text(d=>d)
+					.attr("font-size", 30)
+
+
+	// radial bar panel/outer circle
+	var radialAxis = svg.append("g")
+						.attr("class", "rAxis")
+						.attr("id", "withinSVG")
+						.selectAll("g")
+						.data(data)
+						.enter()
+						.append("g")
+
+	radialAxis.append("circle")
+				.attr("r", (d,i)=> {
+					return getOuterRadius(i) + arcPadding
+				})
+				.attr("fill", "#e4d2c1")
+				.attr("stroke", (d,i) =>{
+					if(i===1){
+						"black"
+					}else{
+						"gray"
+					}
+				})
+
+
+
+	function getOuterRadius(index) {
+    	return getInnerRadius(index) + arcWidth;
+ 	}
+
+ 	function percentFormat(ratio){
+ 		var p = Math.max(0, d3.precisionFixed(0.05) - 2)
+ 		var f = d3.format("." + p + "%")
+ 		return f(ratio)
+ 	}
+
+
+
+	// radical-bar
+	var arcs = svg.append("g")
+					.attr("class", "data")
+					.selectAll("path")
+					.data(data)
+					.enter()
+					.append("path")
+					.attr("class", "arc")
+					.style("fill", (d, i) => colorList(i))
+					.style("opacity", (d, i) => 1 - (((i) * 6)/38 % 1) * 0.6)//0.7
+					.on("mouseover", function(e, d, i){ //i无效
+						console.log("hover value",[d.r2019, d.location])
+					})
+					.on("click", function(e,d){
+						console.log("----click check d i", [e,d])
+						highLight(d.location)
+					})
+	
+  	arcs.transition()
+	    .delay((d, i) => i * 80)
+	    .duration(400)
+	    .attrTween('d', arcTween)
+
+	arc = d3.arc()
+	    .innerRadius((d, i) => getInnerRadius(i))
+	    .outerRadius((d, i) => getOuterRadius(i))
+	    .startAngle(0)
+	    .endAngle((d, i) => scale(d))
+
+	function arcTween(d, i) {
+	    let interpolate = d3.interpolate(0, d.r2019);
+	    return t => arc(interpolate(t), i);
+  	}
+
+
+
+    // labels
+	radialAxis.append('text')
+				.attr("text-anchor", "end")
+				.attr("class", "radialBarLabel")
+    			.attr('x', xlabelPadding)
+   				.attr('y', (d, i) => -getOuterRadius(i) + ylabelPadding + 5)
+    			.text(d => percentFormat(d.r2019))
+    			.attr("font-size", 10)
+
+
+
+	radialAxis.append('text')
+				.attr("text-anchor", "end")
+				.attr("class","radialBarLabel")
+    			.attr('x', xlabelPadding-30)
+   				.attr('y', (d, i) => -getOuterRadius(i) + ylabelPadding + 5 )
+    			.text(d => d.location  + " -- ")
+    			.attr("font-size", 10)
+
+	// draw outer circle
+	svg.append("circle")
+		.attr("cx", xlabelPadding+10)
+		.attr("cy", ylabelPadding)
+		.attr("r", 500)
+		.attr("fill", "none")
+		.attr("stroke", "black")
+		.attr("opacity", 0.2)
+		.attr("stroke-width", 10)
+
+	// 50% benchmark
+	svg.append("text")
+		.attr("class", "benchmark")
+		.attr("x",xlabelPadding-15)
+		.attr("y", 550)
+		.attr("fill", "black")
+		.attr("font-size", 30)
+		.text("50%")
+
+		
+	svg.append("circle")
+		.attr("fill", "black")
+		.attr("cx", xlabelPadding+5)
+		.attr("cy", 505)
+		.attr("r", 5)
+
+
+
+
+
+	// **========================================================================================================**
+	// **===============================================placeholder2=============================================**
+	// **========================================================================================================**
+	// Init svg
+	var svg2 = d3.select("#placeholder2")
+				.append("g")
+				.attr("width", width)
+				.attr("height", height)	
+				.attr("transform", "translate(" + 200 + "," + height/4 + ")")
+
+	// Fundamental parameters
+	yLog = d3.scaleLinear() //scaleLog can not apply to 0, true data include 0
+		    .domain(d3.extent(data.flatMap(d => d.ratios)))
+		    .range([ width,0])
+
+    data.columns = ["Year:2009", "Year:2019"]
+    n = data.columns.length
+
+	lineLog = d3.line()
+			    .x((d, i) => xScale(i))
+			    .y(yLog)
+
+     xScale = d3.scalePoint()
+	    .domain(d3.range(n))
+	    .range([0, height])
+	    .padding(0.5)
+
+    // draw line
+	 svg2.append("g")
+		// .attr("class", "slopeLine")
+	    .attr("fill", "none")
+	    .selectAll("path")
+	    .data(data)
+	    .join("path")
+	    .attr("class", "slopeLine")
+	    .attr("stroke", "gray")
+	    .attr("stroke-width",3)
+	    .attr("d", d => lineLog(d.ratios));
+
+    // draw circle
+    svg2.append("g")
+	    .selectAll("g")
+	    .data(data)
+	    .join("g")
+	      .append("circle")
+	        .attr("fill", "gray")
+	        .attr("cx", d => {
+	        	return xScale(0)
+	        })
+	        .attr("cy", d => yLog(d.ratios[0]))
+	        .attr("r", 8)
+	        .clone(true)
+	          .attr("fill", "gray")
+	          .attr("cx", d => xScale(1))
+	          .attr("cy", d => yLog(d.ratios[1]));
+
+
+  // header 2009-2019 
+	svg2.append("text")
+		.attr("class", "yearHeader")
+		.attr("x",200)
+		.attr("y", 0-20)
+		.attr("fill", "gray")
+		.attr("font-size", 30)
+		.text("2009")
+	svg2.append("text")
+		.attr("class", "yearHeader")
+		.attr("x",680)
+		.attr("y", 0 -20)
+		.attr("fill", "gray")
+		.attr("font-size", 30)
+		.text("2019")
+
+	// draw label 
+  	svg2.append("g")
+	    .selectAll("g")
+	    .data(data)
+	    .join("g")
+	      .append("text")
+	        .attr("fill", "black")
+	        .attr("opacity", 0)
+	        .attr("text-anchor", "end")
+	        .attr("x", d => {
+	        	return xScale(0)
+	        })
+	        .attr("y", d => yLog(d.ratios[0]) + 15)
+	        .text((d,i)=>{
+	        	return d.location + "-" + d.ratios[0]
+	        })
+	        .clone(true)
+	          .attr("fill", colorListAll[7])
+	          .attr("text-anchor", "start")
+	          .attr("x", d => xScale(1))
+	          .attr("y", d => yLog(d.ratios[1]) + 15)
+	          .text(d =>{
+	          	return d.ratios[1] + "-" + d.location
+	          })
+
+
+	// Interaction; click radial bar highlight that in slope chart
+	function highLight(inputLocation){
+
+		// clear after cilck
+		svg2.append("g")
+		    .attr("fill", "none")
+		    .selectAll("path")
+		    .data(data)
+		    .join("path")
+		    .attr("class", "slopeLine")
+		    .attr("stroke", (d,i)=> d.location === inputLocation? "gray":"gray")
+		    .attr("d", d => lineLog(d.ratios))
+		    .attr("stroke-width",3)
+
+	    d3.selectAll('.tmpText1').data([]).exit().remove();
+
+	    svg2.append("g")
+		    .selectAll("g")
+		    .data(data)
+		    .join("g")
+		      .append("circle")
+		        .attr("fill", "gray")
+		        .attr("cx", d => {
+		        	return xScale(0)
+		        })
+		        .attr("cy", d => yLog(d.ratios[0]))
+		        .attr("r", 8)
+		        .clone(true)
+		          .attr("fill", "gray")
+		          .attr("cx", d => xScale(1))
+		          .attr("cy", d => yLog(d.ratios[1]));
+
+		// highlight line 
+		svg2.append("g")
+		    .attr("fill", "none")
+		    .selectAll("path")
+		    .data(data)
+		    .join("path")
+		    .attr("class", "slopeLine")
+		    .attr("stroke", (d,i)=> d.location === inputLocation? "green":"gray")
+		    .attr("d", d => lineLog(d.ratios))
+		    .attr("stroke-width",3)
+
+	    // highlight label
+		svg2.append("g")
+		    .attr('class', 'slopeLabel')
+		    .selectAll("g")
+		    .data(data)
+		    .enter()
+		    .append("g")
+		      .append("text")
+		      .attr('class', 'tmpText1')
+		        .attr("fill", "green")
+		        .attr("opacity", (d,i)=> d.location === inputLocation? 1:0)
+		        .attr("text-anchor", "end")
+		        .attr("x", d => {
+		        	return xScale(0) -10
+		        })
+		        .attr("y", d => yLog(d.ratios[0]) + 5)
+		        .text((d,i)=>{
+		        	console.log('----', d.location)
+		        	if(d.location === inputLocation){
+		        		return d.location + "-" +  percentFormat(d.ratios[0])
+		        	}else{
+		        		return 0
+		        	}
+		        	
+		        })
+		        .clone(true)
+		          .attr("fill", "green")
+		          .attr("text-anchor", "start")
+		          .attr("x", d => xScale(1)+10)
+		          .attr("y", d => yLog(d.ratios[1]) + 5)
+		          .text((d,i) =>{
+		          	console.log("check location", d.location)
+		          	if(d.location === inputLocation){
+		        		return  percentFormat(d.ratios[1]) + "-" + d.location
+		        	}else{
+	        			return 0
+		        	}
+		          })
+
+          // highlight circle
+		    svg2.append("g")
+			    .selectAll("g")
+			    .data(data)
+			    .join("g")
+			      .append("circle")
+			        .attr("fill",  (d,i)=> d.location === inputLocation? "green":"gray")
+			        .attr("cx", d => {
+			        	return xScale(0)
+			        })
+			        .attr("cy", d => yLog(d.ratios[0]))
+			        .attr("r", 8)
+			        .clone(true)
+			          .attr("fill",  (d,i)=> d.location === inputLocation? "green":"gray")
+			          .attr("cx", d => xScale(1))
+			          .attr("cy", d => yLog(d.ratios[1]));
+		}
+
+
+
+})
+  	
+
+	</script>
+</body>
+</html>
